@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>m-speed 撮影ガイド</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f2f4f7; color: #1f2937; }
+  header { background: #111827; color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 8px; }
+  header h1 { font-size: 16px; flex: 1; }
+  header .staff { font-size: 12px; opacity: .8; }
+  .back { background: none; border: none; color: #fff; font-size: 20px; padding: 0 4px; display: none; }
+  main { padding: 12px; max-width: 640px; margin: 0 auto; }
+  .center { text-align: center; padding: 48px 16px; color: #6b7280; }
+  .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; }
+  .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .case-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .case-card .no { font-size: 18px; font-weight: 700; color: #2563eb; min-width: 56px; }
+  .case-card .info { flex: 1; }
+  .case-card .vehicle { font-weight: 600; }
+  .case-card .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; color: #374151; white-space: nowrap; }
+  .slot { display: flex; align-items: center; gap: 10px; }
+  .slot .name { flex: 1; font-weight: 600; }
+  .slot .name small { display: block; font-weight: 400; font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .req { color: #dc2626; font-size: 11px; margin-left: 4px; }
+  .count { font-size: 12px; color: #059669; font-weight: 700; min-width: 40px; text-align: right; }
+  .count.zero { color: #d1d5db; }
+  .shoot { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+  .done .shoot { background: #059669; }
+  #caseTitle { font-size: 14px; color: #374151; margin: 4px 0 12px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 40; }
+  .toast.show { opacity: 1; }
+  input[type=file] { display: none; }
+
+  /* ---- カメラビュー(ガイド線オーバーレイ付き) ---- */
+  #cameraView { position: fixed; inset: 0; background: #000; z-index: 30; display: none; flex-direction: column; }
+  #cameraView.show { display: flex; }
+  .cam-stage { position: relative; flex: 1; overflow: hidden; }
+  .cam-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cam-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .cam-overlay svg { width: 92%; max-height: 80%; }
+  .cam-overlay svg * { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .cam-top { position: absolute; top: 0; left: 0; right: 0; padding: 14px 16px; background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; z-index: 2; }
+  .cam-top .slot-name { font-weight: 700; font-size: 16px; }
+  .cam-top .hint { font-size: 12px; opacity: .85; margin-top: 2px; }
+  .cam-bottom { padding: 18px 24px calc(24px + env(safe-area-inset-bottom)); background: #000; display: flex; align-items: center; justify-content: space-between; }
+  .cam-cancel { background: none; border: none; color: #fff; font-size: 15px; padding: 8px; }
+  .shutter { width: 68px; height: 68px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,.25); }
+  .shutter:active { background: #fff; }
+  .cam-spacer { width: 60px; }
+
+  /* ---- フォールバック用ガイドプレビュー ---- */
+  #guideModal { position: fixed; inset: 0; background: rgba(17,24,39,.96); z-index: 30; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; color: #fff; text-align: center; }
+  #guideModal.show { display: flex; }
+  #guideModal svg { width: 88%; max-width: 420px; margin: 18px 0; }
+  #guideModal svg * { fill: none; stroke: rgba(255,255,255,.8); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #guideModal .slot-name { font-size: 18px; font-weight: 700; }
+  #guideModal .hint { font-size: 13px; opacity: .85; margin-top: 4px; }
+  #guideModal .open-cam { background: #2563eb; color: #fff; border: none; border-radius: 999px; padding: 14px 28px; font-size: 15px; font-weight: 700; margin-top: 8px; }
+  #guideModal .cancel { background: none; border: none; color: #9ca3af; font-size: 14px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="back" id="backBtn" onclick="showCaseList()">‹</button>
+  <h1>m-speed 撮影ガイド</h1>
+  <span class="staff" id="staffName"></span>
+</header>
+
+<main>
+  <div id="loading" class="center">読み込み中…</div>
+  <div id="errorBox" class="error" style="display:none"></div>
+  <div id="caseList" style="display:none"></div>
+  <div id="slotView" style="display:none">
+    <div id="caseTitle"></div>
+    <div id="slotList"></div>
+  </div>
+</main>
+
+<!-- ライブカメラ + ガイド線 -->
+<div id="cameraView">
+  <div class="cam-stage">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-overlay" id="camOverlay"></div>
+    <div class="cam-top">
+      <div class="slot-name" id="camSlotName"></div>
+      <div class="hint" id="camHint"></div>
+    </div>
+  </div>
+  <div class="cam-bottom">
+    <button class="cam-cancel" onclick="closeCamera()">キャンセル</button>
+    <button class="shutter" onclick="capturePhoto()" aria-label="撮影"></button>
+    <div class="cam-spacer"></div>
+  </div>
+</div>
+
+<!-- ライブカメラが使えない端末向け: 構図ガイドを見せてから標準カメラを起動 -->
+<div id="guideModal">
+  <div class="slot-name" id="gmSlotName"></div>
+  <div class="hint" id="gmHint"></div>
+  <div id="gmGuide"></div>
+  <button class="open-cam" onclick="openNativeCamera()">この構図で撮影する</button>
+  <button class="cancel" onclick="hideGuideModal()">キャンセル</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" accept="image/*" capture="environment" id="fileInput">
+
+<script>
+  // GAS Web アプリ(API)の URL。デモ→本番切り替え時はここを差し替える
+  var API_URL = 'https://script.google.com/macros/s/AKfycbwMt4cwCeHOnQ8BZaLlSDlQmsGq7bit1UxTxOAnYfvDwzdlgvFBZ9ZpxPImnMVgHIu4/exec';
+
+  var KEY = new URLSearchParams(location.search).get('key') || '';
+  var STAFF_NAME = '';
+  var DATA = null;
+  var currentCase = null;
+  var currentSlot = null;
+  var camStream = null;
+
+  // ガイド線(薄い線のシルエット)。撮影テンプレの「ガイド」列の値で切り替える
+  var GUIDES = {
+    '車前方': { viewBox: '0 0 100 80', svg:
+      '<path d="M20 62 V46 Q20 41 24 39 L29 25 Q30 21 35 21 H65 Q70 21 71 25 L76 39 Q80 41 80 46 V62"/>' +
+      '<path d="M32 37 L35 25 H65 L68 37 Z"/>' +
+      '<rect x="23" y="43" width="12" height="6" rx="3"/><rect x="65" y="43" width="12" height="6" rx="3"/>' +
+      '<path d="M30 53 H70"/>' +
+      '<rect x="12" y="37" width="8" height="5" rx="2"/><rect x="80" y="37" width="8" height="5" rx="2"/>' +
+      '<path d="M24 62 H36 M64 62 H76"/>' },
+    '車後方': { viewBox: '0 0 100 80', svg:
+      '<path d="M20 62 V46 Q20 41 24 39 L28 25 Q29 21 34 21 H66 Q71 21 72 25 L76 39 Q80 41 80 46 V62"/>' +
+      '<path d="M31 36 L34 25 H66 L69 36 Z"/>' +
+      '<rect x="22" y="42" width="14" height="5" rx="2.5"/><rect x="64" y="42" width="14" height="5" rx="2.5"/>' +
+      '<rect x="40" y="50" width="20" height="7" rx="1"/>' +
+      '<path d="M24 62 H36 M64 62 H76"/>' },
+    '車側面': { viewBox: '0 0 100 55', svg:
+      '<path d="M6 40 Q5 32 15 30 L26 28 Q33 18 44 17 H58 Q68 18 74 27 L87 30 Q95 32 94 40"/>' +
+      '<circle cx="29" cy="41" r="8"/><circle cx="71" cy="41" r="8"/>' +
+      '<path d="M6 40 H21 M37 40 H63 M79 40 H94"/>' +
+      '<path d="M46 19 V28 M34 28 H70"/>' },
+    'メーター': { viewBox: '0 0 100 70', svg:
+      '<circle cx="50" cy="35" r="26"/><circle cx="50" cy="35" r="2"/>' +
+      '<path d="M50 35 L36 21"/><path d="M34 58 H66"/>' },
+    'グリッド': { viewBox: '0 0 100 75', svg:
+      '<path d="M33.3 0 V75 M66.6 0 V75 M0 25 H100 M0 50 H100"/>' }
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function toast(msg) {
+    $('toast').textContent = msg;
+    $('toast').classList.add('show');
+    setTimeout(function () { $('toast').classList.remove('show'); }, 2500);
+  }
+  function fail(msg) {
+    $('loading').style.display = 'none';
+    $('errorBox').style.display = 'block';
+    $('errorBox').textContent = msg;
+  }
+  function guideSvg(guideName) {
+    var g = GUIDES[guideName];
+    if (!g) return '';
+    return '<svg viewBox="' + g.viewBox + '" preserveAspectRatio="xMidYMid meet">' + g.svg + '</svg>';
+  }
+
+  // ---- 起動 ----
+  function boot() {
+    if (!KEY) { fail('アクセス権がありません。共有された URL から開いてください。'); return; }
+    STAFF_NAME = localStorage.getItem('staffName') || '';
+    if (!STAFF_NAME) {
+      STAFF_NAME = (prompt('お名前を入力してください(初回のみ)') || 'スタッフ').trim();
+      localStorage.setItem('staffName', STAFF_NAME);
+    }
+    fetch(API_URL + '?page=api&action=bootstrap&key=' + encodeURIComponent(KEY) + '&name=' + encodeURIComponent(STAFF_NAME))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { fail(res.error); return; }
+        DATA = res;
+        $('staffName').textContent = res.staffName;
+        showCaseList();
+      })
+      .catch(function (e) { fail('通信エラー: ' + e.message + '\n電波の良い場所で再読み込みしてください。'); });
+  }
+
+  // ---- 案件一覧 ----
+  function showCaseList() {
+    currentCase = null;
+    $('backBtn').style.display = 'none';
+    $('loading').style.display = 'none';
+    $('slotView').style.display = 'none';
+    var box = $('caseList');
+    box.style.display = 'block';
+    box.innerHTML = '';
+    if (DATA.cases.length === 0) {
+      box.innerHTML = '<div class="center">対象の案件がありません</div>';
+      return;
+    }
+    DATA.cases.forEach(function (c) {
+      var el = document.createElement('div');
+      el.className = 'card case-card';
+      el.innerHTML =
+        '<div class="no">' + esc(c.receiptNo) + '</div>' +
+        '<div class="info"><div class="vehicle">' + esc(c.vehicle) + '</div>' +
+        '<div class="sub">' + esc(c.customer) + '様 / ' + esc(c.category) + '</div></div>' +
+        '<span class="badge">' + esc(c.status) + '</span>';
+      el.onclick = function () { showSlots(c); };
+      box.appendChild(el);
+    });
+  }
+
+  // ---- 撮影チェックリスト ----
+  function showSlots(c) {
+    currentCase = c;
+    $('backBtn').style.display = 'block';
+    $('caseList').style.display = 'none';
+    $('slotView').style.display = 'block';
+    $('caseTitle').textContent = c.receiptNo + ' ' + c.vehicle + '(' + c.customer + '様) — ' + c.category;
+    renderSlots();
+  }
+
+  function renderSlots() {
+    var slots = DATA.slots[currentCase.category] || [];
+    var counts = (DATA.counts[currentCase.receiptNo] || {});
+    var box = $('slotList');
+    box.innerHTML = '';
+    if (slots.length === 0) {
+      box.innerHTML = '<div class="center">このカテゴリの撮影テンプレが未設定です。<br>スプレッドシートの「撮影テンプレ」シートに追加してください。</div>';
+      return;
+    }
+    slots.forEach(function (s) {
+      var n = counts[s.slotId] || 0;
+      var el = document.createElement('div');
+      el.className = 'card slot' + (n > 0 ? ' done' : '');
+      el.innerHTML =
+        '<div class="name">' + esc(s.name) + (s.required ? '<span class="req">必須</span>' : '') +
+        (s.desc ? '<small>' + esc(s.desc) + '</small>' : '') + '</div>' +
+        '<div class="count' + (n === 0 ? ' zero' : '') + '">' + n + '枚</div>' +
+        '<button class="shoot">' + (n > 0 ? '追加撮影' : '撮影') + '</button>';
+      el.querySelector('.shoot').onclick = function () { startShoot(s); };
+      box.appendChild(el);
+    });
+  }
+
+  // ---- 撮影(ライブカメラ + ガイド線。使えない端末は構図プレビュー → 標準カメラ) ----
+  function startShoot(slot) {
+    currentSlot = slot;
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
+        audio: false
+      }).then(function (stream) {
+        camStream = stream;
+        $('camVideo').srcObject = stream;
+        $('camSlotName').textContent = slot.name + (slot.required ? '(必須)' : '');
+        $('camHint').textContent = slot.desc || '線に合わせて撮影してください';
+        $('camOverlay').innerHTML = guideSvg(slot.guide);
+        $('cameraView').classList.add('show');
+      }).catch(function () {
+        showGuideModal();
+      });
+    } else {
+      showGuideModal();
+    }
+  }
+
+  function capturePhoto() {
+    var video = $('camVideo');
+    if (!video.videoWidth) return;
+    var scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    closeCamera();
+    uploadDataUrl(dataUrl);
+  }
+
+  function closeCamera() {
+    $('cameraView').classList.remove('show');
+    if (camStream) {
+      camStream.getTracks().forEach(function (t) { t.stop(); });
+      camStream = null;
+    }
+  }
+
+  function showGuideModal() {
+    $('gmSlotName').textContent = currentSlot.name + (currentSlot.required ? '(必須)' : '');
+    $('gmHint').textContent = currentSlot.desc || 'この構図に合わせて撮影してください';
+    $('gmGuide').innerHTML = guideSvg(currentSlot.guide) || '<div style="padding:24px 0"></div>';
+    $('guideModal').classList.add('show');
+  }
+  function hideGuideModal() { $('guideModal').classList.remove('show'); }
+  function openNativeCamera() {
+    hideGuideModal();
+    $('fileInput').value = '';
+    $('fileInput').click();
+  }
+
+  $('fileInput').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file || !currentCase || !currentSlot) return;
+    resizeImage(file, 1600, 0.8, uploadDataUrl);
+  });
+
+  function uploadDataUrl(dataUrl) {
+    toast('アップロード中…');
+    fetch(API_URL + '?path=upload', {
+      method: 'POST',
+      // Content-Type を指定しない(text/plain 扱いにして CORS プリフライトを回避する)
+      body: JSON.stringify({
+        key: KEY,
+        name: STAFF_NAME,
+        receiptNo: currentCase.receiptNo,
+        slotId: currentSlot.slotId,
+        dataUrl: dataUrl
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { alert(res.error + '\nもう一度撮影してください。'); return; }
+        var counts = (DATA.counts[currentCase.receiptNo] = DATA.counts[currentCase.receiptNo] || {});
+        counts[currentSlot.slotId] = (counts[currentSlot.slotId] || 0) + 1;
+        renderSlots();
+        toast('保存しました ✓');
+      })
+      .catch(function (e) { alert('通信エラー: ' + e.message + '\n電波の良い場所でもう一度お試しください。'); });
+  }
+
+  /** 長辺 maxSize px・JPEG に圧縮して dataURL を返す(通信量対策) */
+  function resizeImage(file, maxSize, quality, callback) {
+    var img = new Image();
+    var reader = new FileReader();
+    reader.onload = function () { img.src = reader.result; };
+    img.onload = function () {
+      var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', quality));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  boot();
+</script>
+</body>
+</html>

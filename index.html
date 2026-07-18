@@ -14,7 +14,7 @@
   .back { background: none; border: none; color: #fff; font-size: 20px; padding: 0 4px; display: none; }
   main { padding: 12px; max-width: 640px; margin: 0 auto; }
   .center { text-align: center; padding: 48px 16px; color: #6b7280; }
-  .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; }
+  .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; white-space: pre-wrap; }
   .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
   .case-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
   .case-card .no { font-size: 18px; font-weight: 700; color: #2563eb; min-width: 56px; }
@@ -30,8 +30,10 @@
   .count.zero { color: #d1d5db; }
   .shoot { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
   .done .shoot { background: #059669; }
-  #caseTitle { font-size: 14px; color: #374151; margin: 4px 0 12px; }
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 40; }
+  .shoot.extra { background: #7c3aed; }
+  #caseTitle { font-size: 14px; color: #374151; margin: 4px 0 8px; }
+  .gallery-open { width: 100%; background: #fff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 60; }
   .toast.show { opacity: 1; }
   input[type=file] { display: none; }
 
@@ -43,6 +45,7 @@
   .cam-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .cam-overlay svg { width: 92%; max-height: 80%; }
   .cam-overlay svg * { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .cam-overlay .guide-img { width: 92%; max-height: 80%; object-fit: contain; opacity: .8; }
   .cam-top { position: absolute; top: 0; left: 0; right: 0; padding: 14px 16px; background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; z-index: 2; }
   .cam-top .slot-name { font-weight: 700; font-size: 16px; }
   .cam-top .hint { font-size: 12px; opacity: .85; margin-top: 2px; }
@@ -57,10 +60,23 @@
   #guideModal.show { display: flex; }
   #guideModal svg { width: 88%; max-width: 420px; margin: 18px 0; }
   #guideModal svg * { fill: none; stroke: rgba(255,255,255,.8); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #guideModal .guide-img { width: 88%; max-width: 420px; margin: 18px 0; opacity: .9; }
   #guideModal .slot-name { font-size: 18px; font-weight: 700; }
   #guideModal .hint { font-size: 13px; opacity: .85; margin-top: 4px; }
   #guideModal .open-cam { background: #2563eb; color: #fff; border: none; border-radius: 999px; padding: 14px 28px; font-size: 15px; font-weight: 700; margin-top: 8px; }
   #guideModal .cancel { background: none; border: none; color: #9ca3af; font-size: 14px; margin-top: 16px; }
+
+  /* ---- ギャラリー ---- */
+  #galleryModal { position: fixed; inset: 0; background: #111827; z-index: 50; display: none; flex-direction: column; }
+  #galleryModal.show { display: flex; }
+  .gal-head { padding: 14px 16px; color: #fff; display: flex; align-items: center; }
+  .gal-head .title { flex: 1; font-weight: 700; font-size: 15px; }
+  .gal-close { background: none; border: none; color: #fff; font-size: 22px; padding: 0 6px; }
+  .gal-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px 4px calc(16px + env(safe-area-inset-bottom)); align-content: start; }
+  .gal-item { position: relative; aspect-ratio: 1; background: #1f2937; border-radius: 6px; overflow: hidden; cursor: pointer; }
+  .gal-item img { width: 100%; height: 100%; object-fit: cover; }
+  .gal-item .cap { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gal-empty { grid-column: 1 / -1; color: #9ca3af; text-align: center; padding: 40px 0; }
 </style>
 </head>
 <body>
@@ -77,6 +93,7 @@
   <div id="caseList" style="display:none"></div>
   <div id="slotView" style="display:none">
     <div id="caseTitle"></div>
+    <button class="gallery-open" onclick="openGallery()">📷 撮影済みの写真を見る</button>
     <div id="slotList"></div>
   </div>
 </main>
@@ -107,6 +124,15 @@
   <button class="cancel" onclick="hideGuideModal()">キャンセル</button>
 </div>
 
+<!-- 撮影済みギャラリー -->
+<div id="galleryModal">
+  <div class="gal-head">
+    <div class="title" id="galTitle">撮影済みの写真</div>
+    <button class="gal-close" onclick="closeGallery()">×</button>
+  </div>
+  <div class="gal-grid" id="galGrid"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 <input type="file" accept="image/*" capture="environment" id="fileInput">
 
@@ -120,34 +146,98 @@
   var currentCase = null;
   var currentSlot = null;
   var camStream = null;
+  var EXTRA_SLOT = { slotId: 'extra', name: 'その他の写真', desc: '自由に撮影(保存時に名前を付けられます)', guide: 'グリッド', required: false, extra: true };
 
-  // ガイド線(薄い線のシルエット)。撮影テンプレの「ガイド」列の値で切り替える
-  var GUIDES = {
-    '車前方': { viewBox: '0 0 100 80', svg:
-      '<path d="M20 62 V46 Q20 41 24 39 L29 25 Q30 21 35 21 H65 Q70 21 71 25 L76 39 Q80 41 80 46 V62"/>' +
-      '<path d="M32 37 L35 25 H65 L68 37 Z"/>' +
-      '<rect x="23" y="43" width="12" height="6" rx="3"/><rect x="65" y="43" width="12" height="6" rx="3"/>' +
-      '<path d="M30 53 H70"/>' +
-      '<rect x="12" y="37" width="8" height="5" rx="2"/><rect x="80" y="37" width="8" height="5" rx="2"/>' +
-      '<path d="M24 62 H36 M64 62 H76"/>' },
-    '車後方': { viewBox: '0 0 100 80', svg:
-      '<path d="M20 62 V46 Q20 41 24 39 L28 25 Q29 21 34 21 H66 Q71 21 72 25 L76 39 Q80 41 80 46 V62"/>' +
-      '<path d="M31 36 L34 25 H66 L69 36 Z"/>' +
-      '<rect x="22" y="42" width="14" height="5" rx="2.5"/><rect x="64" y="42" width="14" height="5" rx="2.5"/>' +
-      '<rect x="40" y="50" width="20" height="7" rx="1"/>' +
-      '<path d="M24 62 H36 M64 62 H76"/>' },
-    '車側面': { viewBox: '0 0 100 55', svg:
-      '<path d="M6 40 Q5 32 15 30 L26 28 Q33 18 44 17 H58 Q68 18 74 27 L87 30 Q95 32 94 40"/>' +
-      '<circle cx="29" cy="41" r="8"/><circle cx="71" cy="41" r="8"/>' +
-      '<path d="M6 40 H21 M37 40 H63 M79 40 H94"/>' +
-      '<path d="M46 19 V28 M34 28 H70"/>' },
-    'メーター': { viewBox: '0 0 100 70', svg:
-      '<circle cx="50" cy="35" r="26"/><circle cx="50" cy="35" r="2"/>' +
-      '<path d="M50 35 L36 21"/><path d="M34 58 H66"/>' },
-    'グリッド': { viewBox: '0 0 100 75', svg:
-      '<path d="M33.3 0 V75 M66.6 0 V75 M0 25 H100 M0 50 H100"/>' }
+  // ---- ガイド線 ----
+  // 「ガイド」列の値 → 内部キー
+  var GUIDE_KEYS = { '車前方': 'front', '車後方': 'rear', '車側面': 'side', 'メーター': 'meter', 'グリッド': 'grid' };
+  // 車サイズごとの体格パラメータ(前方/後方ビュー用): w=全幅, h=全高, cab=キャビン高, roofIn=ルーフの絞り
+  var SIZE_PARAMS = {
+    SS: { w: 50, h: 54, cab: 28, roofIn: 5 },
+    S:  { w: 58, h: 48, cab: 22, roofIn: 7 },
+    M:  { w: 64, h: 44, cab: 19, roofIn: 9 },
+    L:  { w: 64, h: 58, cab: 31, roofIn: 6 },
+    LL: { w: 72, h: 62, cab: 33, roofIn: 6 }
+  };
+  // 車サイズごとの側面シルエット
+  var SIDE_SVGS = {
+    SS: '<path d="M12 44 Q11 37 17 35 L21 34 Q22 19 31 17 L57 17 Q65 18 67 25 L69 34 L83 36 Q89 37 88 44"/>' +
+        '<circle cx="28" cy="45" r="7"/><circle cx="72" cy="45" r="7"/>' +
+        '<path d="M12 44 H21 M35 44 H65 M79 44 H88"/><path d="M44 18 V34 M22 34 H68"/>',
+    S:  '<path d="M8 44 Q7 35 16 33 L24 31 Q28 20 40 19 L56 19 Q66 20 72 28 L84 32 Q93 34 92 44"/>' +
+        '<circle cx="28" cy="45" r="7.5"/><circle cx="72" cy="45" r="7.5"/>' +
+        '<path d="M8 44 H20 M36 44 H64 M80 44 H92"/><path d="M48 20 V31 M25 31 H70"/>',
+    M:  '<path d="M5 44 Q4 36 13 34 L23 32 Q31 22 43 21 L57 21 Q67 22 72 28 L80 31 L90 33 Q96 35 95 44"/>' +
+        '<circle cx="26" cy="45" r="8"/><circle cx="74" cy="45" r="8"/>' +
+        '<path d="M5 44 H18 M34 44 H66 M82 44 H95"/><path d="M50 22 V32 M25 32 H72 M80 31 L82 40"/>',
+    L:  '<path d="M9 44 Q8 34 15 32 L19 31 L23 19 Q24 15 31 15 L74 15 Q80 15 81 21 L82 31 L86 32 Q92 34 91 44"/>' +
+        '<circle cx="28" cy="45" r="7.5"/><circle cx="72" cy="45" r="7.5"/>' +
+        '<path d="M9 44 H20 M36 44 H64 M80 44 H91"/><path d="M40 16 V31 M60 16 V31 M23 31 H82"/>',
+    LL: '<path d="M7 45 Q6 33 13 31 L15 30 L17 16 Q17 13 23 13 L81 13 Q87 13 87 19 V30 L89 31 Q94 33 93 45"/>' +
+        '<circle cx="25" cy="46" r="7"/><circle cx="77" cy="46" r="7"/>' +
+        '<path d="M7 45 H18 M32 45 H70 M84 45 H93"/><path d="M33 14 V30 M57 14 V30 M17 30 H87"/>'
   };
 
+  /** 前方/後方ビューをサイズパラメータから生成する(rear はナンバープレート付き) */
+  function carFaceSvg(size, rear) {
+    var p = SIZE_PARAMS[size] || SIZE_PARAMS.M;
+    var x1 = 50 - p.w / 2, x2 = 50 + p.w / 2;
+    var yB = 82, yT = yB - p.h, yS = yT + p.cab;
+    var ri = p.roofIn;
+    var s = '';
+    // 外形
+    s += '<path d="M' + x1 + ' ' + yB + ' V' + (yS + 4) + ' Q' + x1 + ' ' + yS + ' ' + (x1 + 4) + ' ' + (yS - 2) +
+         ' L' + (x1 + ri) + ' ' + (yT + 4) + ' Q' + (x1 + ri + 1) + ' ' + yT + ' ' + (x1 + ri + 6) + ' ' + yT +
+         ' H' + (x2 - ri - 6) + ' Q' + (x2 - ri - 1) + ' ' + yT + ' ' + (x2 - ri) + ' ' + (yT + 4) +
+         ' L' + (x2 - 4) + ' ' + (yS - 2) + ' Q' + x2 + ' ' + yS + ' ' + x2 + ' ' + (yS + 4) + ' V' + yB + '"/>';
+    // ガラス
+    s += '<path d="M' + (x1 + ri + 3) + ' ' + (yS - 4) + ' L' + (x1 + ri + 6) + ' ' + (yT + 5) +
+         ' H' + (x2 - ri - 6) + ' L' + (x2 - ri - 3) + ' ' + (yS - 4) + ' Z"/>';
+    // ライト
+    s += '<rect x="' + (x1 + 3) + '" y="' + (yS + 5) + '" width="14" height="6" rx="3"/>' +
+         '<rect x="' + (x2 - 17) + '" y="' + (yS + 5) + '" width="14" height="6" rx="3"/>';
+    // ミラー
+    s += '<rect x="' + (x1 - 9) + '" y="' + (yS - 4) + '" width="8" height="5" rx="2"/>' +
+         '<rect x="' + (x2 + 1) + '" y="' + (yS - 4) + '" width="8" height="5" rx="2"/>';
+    if (rear) {
+      s += '<rect x="40" y="' + (yS + 15) + '" width="20" height="7" rx="1"/>';
+    } else {
+      s += '<path d="M' + (x1 + 9) + ' ' + (yS + 17) + ' H' + (x2 - 9) + '"/>';
+    }
+    // 接地
+    s += '<path d="M' + (x1 + 4) + ' ' + yB + ' H' + (x1 + 16) + ' M' + (x2 - 16) + ' ' + yB + ' H' + (x2 - 4) + '"/>';
+    return '<svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMid meet">' + s + '</svg>';
+  }
+
+  function builtinGuideSvg(key, size) {
+    if (key === 'front') return carFaceSvg(size, false);
+    if (key === 'rear') return carFaceSvg(size, true);
+    if (key === 'side') {
+      return '<svg viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet">' + (SIDE_SVGS[size] || SIDE_SVGS.M) + '</svg>';
+    }
+    if (key === 'meter') {
+      return '<svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet">' +
+        '<circle cx="50" cy="35" r="26"/><circle cx="50" cy="35" r="2"/><path d="M50 35 L36 21"/><path d="M34 58 H66"/></svg>';
+    }
+    return '<svg viewBox="0 0 100 75" preserveAspectRatio="xMidYMid meet"><path d="M33.3 0 V75 M66.6 0 V75 M0 25 H100 M0 50 H100"/></svg>';
+  }
+
+  /**
+   * オーバーレイを設定する。assets/guides/{サイズ}_{キー}.png があれば画像を優先し、
+   * 無ければ内蔵のシルエット(SVG)を表示する。画像は白い線・背景透過の PNG を想定。
+   */
+  function setOverlay(el, slot, size) {
+    var key = GUIDE_KEYS[slot.guide] || 'grid';
+    el.innerHTML = builtinGuideSvg(key, size);
+    if (key === 'front' || key === 'rear' || key === 'side') {
+      var src = 'assets/guides/' + size + '_' + key + '.png';
+      var img = new Image();
+      img.onload = function () { el.innerHTML = '<img class="guide-img" src="' + src + '">'; };
+      img.src = src;
+    }
+  }
+
+  // ---- 共通 ----
   function $(id) { return document.getElementById(id); }
   function toast(msg) {
     $('toast').textContent = msg;
@@ -159,11 +249,7 @@
     $('errorBox').style.display = 'block';
     $('errorBox').textContent = msg;
   }
-  function guideSvg(guideName) {
-    var g = GUIDES[guideName];
-    if (!g) return '';
-    return '<svg viewBox="' + g.viewBox + '" preserveAspectRatio="xMidYMid meet">' + g.svg + '</svg>';
-  }
+  function caseSize() { return (currentCase && currentCase.size) || 'M'; }
 
   // ---- 起動 ----
   function boot() {
@@ -202,7 +288,7 @@
       el.className = 'card case-card';
       el.innerHTML =
         '<div class="no">' + esc(c.receiptNo) + '</div>' +
-        '<div class="info"><div class="vehicle">' + esc(c.vehicle) + '</div>' +
+        '<div class="info"><div class="vehicle">' + esc(c.vehicle) + (c.size ? ' <span class="badge">' + esc(c.size) + '</span>' : '') + '</div>' +
         '<div class="sub">' + esc(c.customer) + '様 / ' + esc(c.category) + '</div></div>' +
         '<span class="badge">' + esc(c.status) + '</span>';
       el.onclick = function () { showSlots(c); };
@@ -216,34 +302,31 @@
     $('backBtn').style.display = 'block';
     $('caseList').style.display = 'none';
     $('slotView').style.display = 'block';
-    $('caseTitle').textContent = c.receiptNo + ' ' + c.vehicle + '(' + c.customer + '様) — ' + c.category;
+    $('caseTitle').textContent = c.receiptNo + ' ' + c.vehicle + '(' + c.customer + '様) — ' + c.category +
+      (c.size ? ' / サイズ' + c.size : '');
     renderSlots();
   }
 
   function renderSlots() {
-    var slots = DATA.slots[currentCase.category] || [];
+    var slots = (DATA.slots[currentCase.category] || []).concat([EXTRA_SLOT]);
     var counts = (DATA.counts[currentCase.receiptNo] || {});
     var box = $('slotList');
     box.innerHTML = '';
-    if (slots.length === 0) {
-      box.innerHTML = '<div class="center">このカテゴリの撮影テンプレが未設定です。<br>スプレッドシートの「撮影テンプレ」シートに追加してください。</div>';
-      return;
-    }
     slots.forEach(function (s) {
       var n = counts[s.slotId] || 0;
       var el = document.createElement('div');
-      el.className = 'card slot' + (n > 0 ? ' done' : '');
+      el.className = 'card slot' + (n > 0 && !s.extra ? ' done' : '');
       el.innerHTML =
         '<div class="name">' + esc(s.name) + (s.required ? '<span class="req">必須</span>' : '') +
         (s.desc ? '<small>' + esc(s.desc) + '</small>' : '') + '</div>' +
         '<div class="count' + (n === 0 ? ' zero' : '') + '">' + n + '枚</div>' +
-        '<button class="shoot">' + (n > 0 ? '追加撮影' : '撮影') + '</button>';
+        '<button class="shoot' + (s.extra ? ' extra' : '') + '">' + (s.extra ? '＋撮影' : (n > 0 ? '追加撮影' : '撮影')) + '</button>';
       el.querySelector('.shoot').onclick = function () { startShoot(s); };
       box.appendChild(el);
     });
   }
 
-  // ---- 撮影(ライブカメラ + ガイド線。使えない端末は構図プレビュー → 標準カメラ) ----
+  // ---- 撮影 ----
   function startShoot(slot) {
     currentSlot = slot;
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -255,7 +338,7 @@
         $('camVideo').srcObject = stream;
         $('camSlotName').textContent = slot.name + (slot.required ? '(必須)' : '');
         $('camHint').textContent = slot.desc || '線に合わせて撮影してください';
-        $('camOverlay').innerHTML = guideSvg(slot.guide);
+        setOverlay($('camOverlay'), slot, caseSize());
         $('cameraView').classList.add('show');
       }).catch(function () {
         showGuideModal();
@@ -289,7 +372,7 @@
   function showGuideModal() {
     $('gmSlotName').textContent = currentSlot.name + (currentSlot.required ? '(必須)' : '');
     $('gmHint').textContent = currentSlot.desc || 'この構図に合わせて撮影してください';
-    $('gmGuide').innerHTML = guideSvg(currentSlot.guide) || '<div style="padding:24px 0"></div>';
+    setOverlay($('gmGuide'), currentSlot, caseSize());
     $('guideModal').classList.add('show');
   }
   function hideGuideModal() { $('guideModal').classList.remove('show'); }
@@ -306,6 +389,10 @@
   });
 
   function uploadDataUrl(dataUrl) {
+    var label = '';
+    if (currentSlot.extra) {
+      label = (prompt('この写真の名前(空欄のままOKなら日時が付きます)') || '').trim();
+    }
     toast('アップロード中…');
     fetch(API_URL + '?path=upload', {
       method: 'POST',
@@ -315,6 +402,7 @@
         name: STAFF_NAME,
         receiptNo: currentCase.receiptNo,
         slotId: currentSlot.slotId,
+        label: label,
         dataUrl: dataUrl
       })
     })
@@ -328,6 +416,48 @@
       })
       .catch(function (e) { alert('通信エラー: ' + e.message + '\n電波の良い場所でもう一度お試しください。'); });
   }
+
+  // ---- ギャラリー ----
+  function openGallery() {
+    $('galTitle').textContent = currentCase.receiptNo + ' ' + currentCase.vehicle + ' の写真';
+    $('galGrid').innerHTML = '<div class="gal-empty">読み込み中…</div>';
+    $('galleryModal').classList.add('show');
+    fetch(API_URL + '?page=api&action=photos&key=' + encodeURIComponent(KEY) +
+          '&name=' + encodeURIComponent(STAFF_NAME) + '&receiptNo=' + encodeURIComponent(currentCase.receiptNo))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { $('galGrid').innerHTML = '<div class="gal-empty">' + esc(res.error) + '</div>'; return; }
+        renderGallery(res.photos);
+      })
+      .catch(function (e) { $('galGrid').innerHTML = '<div class="gal-empty">通信エラー: ' + esc(e.message) + '</div>'; });
+  }
+
+  function renderGallery(photos) {
+    var grid = $('galGrid');
+    grid.innerHTML = '';
+    if (photos.length === 0) {
+      grid.innerHTML = '<div class="gal-empty">まだ写真がありません</div>';
+      return;
+    }
+    var slotNames = {};
+    Object.keys(DATA.slots).forEach(function (cat) {
+      DATA.slots[cat].forEach(function (s) { slotNames[s.slotId] = s.name; });
+    });
+    photos.forEach(function (p) {
+      var caption = p.label || slotNames[p.slotId] || (p.slotId === 'extra' ? p.date : p.slotId);
+      var el = document.createElement('div');
+      el.className = 'gal-item';
+      el.innerHTML =
+        '<img loading="lazy" src="https://drive.google.com/thumbnail?id=' + esc(p.fileId) + '&sz=w400" alt="">' +
+        '<div class="cap">' + esc(caption) + ' ' + esc(p.date) + '</div>';
+      el.onclick = function () {
+        window.open('https://drive.google.com/file/d/' + p.fileId + '/view', '_blank');
+      };
+      grid.appendChild(el);
+    });
+  }
+
+  function closeGallery() { $('galleryModal').classList.remove('show'); }
 
   /** 長辺 maxSize px・JPEG に圧縮して dataURL を返す(通信量対策) */
   function resizeImage(file, maxSize, quality, callback) {

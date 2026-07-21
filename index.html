@@ -289,7 +289,7 @@
       el.innerHTML =
         '<div class="no">' + esc(c.receiptNo) + '</div>' +
         '<div class="info"><div class="vehicle">' + esc(c.vehicle) + (c.size ? ' <span class="badge">' + esc(c.size) + '</span>' : '') + '</div>' +
-        '<div class="sub">' + esc(c.customer) + '様 / ' + esc(c.category) + '</div></div>' +
+        '<div class="sub">' + esc(c.customer) + '様 / ' + esc(c.category) + (c.work ? ' / ' + esc(c.work) : '') + '</div></div>' +
         '<span class="badge">' + esc(c.status) + '</span>';
       el.onclick = function () { showSlots(c); };
       box.appendChild(el);

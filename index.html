@@ -17,10 +17,12 @@
   .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; white-space: pre-wrap; }
   .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
   .case-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-  .case-card .no { font-size: 18px; font-weight: 700; color: #2563eb; min-width: 56px; }
   .case-card .info { flex: 1; }
   .case-card .vehicle { font-weight: 600; }
+  .case-card .vehicle .plate { font-weight: 400; font-size: 11px; color: #6b7280; margin-left: 6px; }
   .case-card .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .section-head { font-size: 13px; font-weight: 700; color: #374151; background: #e5e7eb; border-radius: 6px; padding: 6px 10px; margin: 14px 0 8px; }
+  .section-head:first-child { margin-top: 2px; }
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; color: #374151; white-space: nowrap; }
   .slot { display: flex; align-items: center; gap: 10px; }
   .slot .name { flex: 1; font-weight: 600; }
@@ -283,16 +285,33 @@
       box.innerHTML = '<div class="center">対象の案件がありません</div>';
       return;
     }
+    // スプシと同じカテゴリ分けで見出しを付けて表示(並びはシートの行順のまま)
+    var CATEGORY_ORDER = ['車検', '一般整備', '新車中古車', '鈑金塗装'];
+    var groups = {};
     DATA.cases.forEach(function (c) {
-      var el = document.createElement('div');
-      el.className = 'card case-card';
-      el.innerHTML =
-        '<div class="no">' + esc(c.receiptNo) + '</div>' +
-        '<div class="info"><div class="vehicle">' + esc(c.vehicle) + (c.size ? ' <span class="badge">' + esc(c.size) + '</span>' : '') + '</div>' +
-        '<div class="sub">' + esc(c.customer) + '様 / ' + esc(c.category) + (c.work ? ' / ' + esc(c.work) : '') + '</div></div>' +
-        '<span class="badge">' + esc(c.status) + '</span>';
-      el.onclick = function () { showSlots(c); };
-      box.appendChild(el);
+      var key = CATEGORY_ORDER.indexOf(c.category) >= 0 ? c.category : 'その他';
+      (groups[key] = groups[key] || []).push(c);
+    });
+    CATEGORY_ORDER.concat(['その他']).forEach(function (category) {
+      var cases = groups[category];
+      if (!cases || cases.length === 0) return;
+      var head = document.createElement('div');
+      head.className = 'section-head';
+      head.textContent = category + '(' + cases.length + ')';
+      box.appendChild(head);
+      cases.forEach(function (c) {
+        var el = document.createElement('div');
+        el.className = 'card case-card';
+        el.innerHTML =
+          '<div class="info"><div class="vehicle">' + esc(c.vehicle) +
+          (c.size ? ' <span class="badge">' + esc(c.size) + '</span>' : '') +
+          '<span class="plate">' + esc(c.plate) + '</span></div>' +
+          '<div class="sub">受付 ' + esc(c.receiptNo) + ' ・ ' + esc(c.customer) + '様' +
+          (c.work ? ' ・ ' + esc(c.work) : '') + '</div></div>' +
+          '<span class="badge">' + esc(c.status) + '</span>';
+        el.onclick = function () { showSlots(c); };
+        box.appendChild(el);
+      });
     });
   }
 

@@ -3,9 +3,9 @@
 ここに PNG を置くと、内蔵のシルエット(SVG)の代わりにカメラ画面へ重ねて表示される。
 
 - ファイル名の規則: `{車サイズ}_{ビュー}.png`
-  - 車サイズ: `SS` / `S` / `M` / `L` / `LL`
+  - 車サイズ: `kei`(軽) / `std`(普通) / `large`(大型)
   - ビュー: `front`(前方) / `rear`(後方) / `side`(側面)
-  - 例: `SS_front.png`, `M_side.png`, `LL_rear.png`
+  - 例: `kei_front.png`, `std_side.png`, `large_rear.png`(最大9枚)
 - 画像の仕様: **白い線・背景透過** の PNG(黒背景でプレビューして見える線であること)
 - 推奨サイズ: 長辺 1200px 程度
 - 置いたら git commit → push で反映(GitHub Pages が数十秒で配信)

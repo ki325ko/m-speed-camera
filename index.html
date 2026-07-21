@@ -153,36 +153,35 @@
   // ---- ガイド線 ----
   // 「ガイド」列の値 → 内部キー
   var GUIDE_KEYS = { '車前方': 'front', '車後方': 'rear', '車側面': 'side', 'メーター': 'meter', 'グリッド': 'grid' };
-  // 車サイズごとの体格パラメータ(前方/後方ビュー用): w=全幅, h=全高, cab=キャビン高, roofIn=ルーフの絞り
+  // 車サイズは 軽/普通/大型 の3分類(旧5分類の値が残っていても読み替える)
+  var SIZE_ALIAS = { 'SS': '軽', 'S': '普通', 'M': '普通', 'L': '大型', 'LL': '大型' };
+  var SIZE_FILE_KEY = { '軽': 'kei', '普通': 'std', '大型': 'large' }; // 自作ガイド画像のファイル名用
+  function normSize(s) {
+    s = SIZE_ALIAS[s] || s;
+    return SIZE_FILE_KEY[s] ? s : '普通';
+  }
+  // サイズごとの体格パラメータ(前方/後方ビュー用): w=全幅, h=全高, cab=キャビン高, roofIn=ルーフの絞り
   var SIZE_PARAMS = {
-    SS: { w: 50, h: 54, cab: 28, roofIn: 5 },
-    S:  { w: 58, h: 48, cab: 22, roofIn: 7 },
-    M:  { w: 64, h: 44, cab: 19, roofIn: 9 },
-    L:  { w: 64, h: 58, cab: 31, roofIn: 6 },
-    LL: { w: 72, h: 62, cab: 33, roofIn: 6 }
+    '軽':   { w: 50, h: 54, cab: 28, roofIn: 5 },
+    '普通': { w: 64, h: 44, cab: 19, roofIn: 9 },
+    '大型': { w: 70, h: 62, cab: 33, roofIn: 6 }
   };
-  // 車サイズごとの側面シルエット
+  // サイズごとの側面シルエット
   var SIDE_SVGS = {
-    SS: '<path d="M12 44 Q11 37 17 35 L21 34 Q22 19 31 17 L57 17 Q65 18 67 25 L69 34 L83 36 Q89 37 88 44"/>' +
-        '<circle cx="28" cy="45" r="7"/><circle cx="72" cy="45" r="7"/>' +
-        '<path d="M12 44 H21 M35 44 H65 M79 44 H88"/><path d="M44 18 V34 M22 34 H68"/>',
-    S:  '<path d="M8 44 Q7 35 16 33 L24 31 Q28 20 40 19 L56 19 Q66 20 72 28 L84 32 Q93 34 92 44"/>' +
-        '<circle cx="28" cy="45" r="7.5"/><circle cx="72" cy="45" r="7.5"/>' +
-        '<path d="M8 44 H20 M36 44 H64 M80 44 H92"/><path d="M48 20 V31 M25 31 H70"/>',
-    M:  '<path d="M5 44 Q4 36 13 34 L23 32 Q31 22 43 21 L57 21 Q67 22 72 28 L80 31 L90 33 Q96 35 95 44"/>' +
-        '<circle cx="26" cy="45" r="8"/><circle cx="74" cy="45" r="8"/>' +
-        '<path d="M5 44 H18 M34 44 H66 M82 44 H95"/><path d="M50 22 V32 M25 32 H72 M80 31 L82 40"/>',
-    L:  '<path d="M9 44 Q8 34 15 32 L19 31 L23 19 Q24 15 31 15 L74 15 Q80 15 81 21 L82 31 L86 32 Q92 34 91 44"/>' +
-        '<circle cx="28" cy="45" r="7.5"/><circle cx="72" cy="45" r="7.5"/>' +
-        '<path d="M9 44 H20 M36 44 H64 M80 44 H91"/><path d="M40 16 V31 M60 16 V31 M23 31 H82"/>',
-    LL: '<path d="M7 45 Q6 33 13 31 L15 30 L17 16 Q17 13 23 13 L81 13 Q87 13 87 19 V30 L89 31 Q94 33 93 45"/>' +
-        '<circle cx="25" cy="46" r="7"/><circle cx="77" cy="46" r="7"/>' +
-        '<path d="M7 45 H18 M32 45 H70 M84 45 H93"/><path d="M33 14 V30 M57 14 V30 M17 30 H87"/>'
+    '軽':   '<path d="M12 44 Q11 37 17 35 L21 34 Q22 19 31 17 L57 17 Q65 18 67 25 L69 34 L83 36 Q89 37 88 44"/>' +
+            '<circle cx="28" cy="45" r="7"/><circle cx="72" cy="45" r="7"/>' +
+            '<path d="M12 44 H21 M35 44 H65 M79 44 H88"/><path d="M44 18 V34 M22 34 H68"/>',
+    '普通': '<path d="M5 44 Q4 36 13 34 L23 32 Q31 22 43 21 L57 21 Q67 22 72 28 L80 31 L90 33 Q96 35 95 44"/>' +
+            '<circle cx="26" cy="45" r="8"/><circle cx="74" cy="45" r="8"/>' +
+            '<path d="M5 44 H18 M34 44 H66 M82 44 H95"/><path d="M50 22 V32 M25 32 H72 M80 31 L82 40"/>',
+    '大型': '<path d="M9 44 Q8 34 15 32 L19 31 L23 19 Q24 15 31 15 L74 15 Q80 15 81 21 L82 31 L86 32 Q92 34 91 44"/>' +
+            '<circle cx="28" cy="45" r="7.5"/><circle cx="72" cy="45" r="7.5"/>' +
+            '<path d="M9 44 H20 M36 44 H64 M80 44 H91"/><path d="M40 16 V31 M60 16 V31 M23 31 H82"/>'
   };
 
   /** 前方/後方ビューをサイズパラメータから生成する(rear はナンバープレート付き) */
   function carFaceSvg(size, rear) {
-    var p = SIZE_PARAMS[size] || SIZE_PARAMS.M;
+    var p = SIZE_PARAMS[size] || SIZE_PARAMS['普通'];
     var x1 = 50 - p.w / 2, x2 = 50 + p.w / 2;
     var yB = 82, yT = yB - p.h, yS = yT + p.cab;
     var ri = p.roofIn;
@@ -215,7 +214,7 @@
     if (key === 'front') return carFaceSvg(size, false);
     if (key === 'rear') return carFaceSvg(size, true);
     if (key === 'side') {
-      return '<svg viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet">' + (SIDE_SVGS[size] || SIDE_SVGS.M) + '</svg>';
+      return '<svg viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet">' + (SIDE_SVGS[size] || SIDE_SVGS['普通']) + '</svg>';
     }
     if (key === 'meter') {
       return '<svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet">' +
@@ -232,7 +231,7 @@
     var key = GUIDE_KEYS[slot.guide] || 'grid';
     el.innerHTML = builtinGuideSvg(key, size);
     if (key === 'front' || key === 'rear' || key === 'side') {
-      var src = 'assets/guides/' + size + '_' + key + '.png';
+      var src = 'assets/guides/' + SIZE_FILE_KEY[size] + '_' + key + '.png';
       var img = new Image();
       img.onload = function () { el.innerHTML = '<img class="guide-img" src="' + src + '">'; };
       img.src = src;
@@ -251,7 +250,7 @@
     $('errorBox').style.display = 'block';
     $('errorBox').textContent = msg;
   }
-  function caseSize() { return (currentCase && currentCase.size) || 'M'; }
+  function caseSize() { return normSize(currentCase && currentCase.size); }
 
   // ---- 起動 ----
   function boot() {

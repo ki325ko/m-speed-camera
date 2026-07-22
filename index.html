@@ -231,10 +231,19 @@
     var key = GUIDE_KEYS[slot.guide] || 'grid';
     el.innerHTML = builtinGuideSvg(key, size);
     if (key === 'front' || key === 'rear' || key === 'side') {
-      var src = 'assets/guides/' + SIZE_FILE_KEY[size] + '_' + key + '.png';
-      var img = new Image();
-      img.onload = function () { el.innerHTML = '<img class="guide-img" src="' + src + '">'; };
-      img.src = src;
+      var base = 'assets/guides/' + SIZE_FILE_KEY[size] + '_' + key;
+      // 側面は左右別の画像(_l/_r)があれば優先し、無ければ共通(_side.png)→内蔵SVGの順
+      var candidates = [];
+      if (key === 'side' && slot.slotId === 'left') candidates.push(base + '_l.png');
+      if (key === 'side' && slot.slotId === 'right') candidates.push(base + '_r.png');
+      candidates.push(base + '.png');
+      (function tryNext(i) {
+        if (i >= candidates.length) return;
+        var img = new Image();
+        img.onload = function () { el.innerHTML = '<img class="guide-img" src="' + candidates[i] + '">'; };
+        img.onerror = function () { tryNext(i + 1); };
+        img.src = candidates[i];
+      })(0);
     }
   }
 

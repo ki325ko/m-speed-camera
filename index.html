@@ -46,9 +46,9 @@
   .cam-stage { position: relative; flex: 1; overflow: hidden; }
   .cam-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .cam-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .cam-overlay svg { width: 92%; max-height: 80%; }
+  .cam-overlay svg { width: 94%; max-height: 88%; }
   .cam-overlay svg * { fill: none; stroke: rgba(255,255,255,.75); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-  .cam-overlay .guide-img { width: 92%; max-height: 80%; object-fit: contain; opacity: .8; }
+  .cam-overlay .guide-img { width: 94%; max-height: 92%; object-fit: contain; opacity: .8; }
   .cam-top { position: absolute; top: 0; left: 0; right: 0; padding: 14px 16px; background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; z-index: 2; }
   .cam-top .slot-name { font-weight: 700; font-size: 16px; }
   .cam-top .hint { font-size: 12px; opacity: .85; margin-top: 2px; }
@@ -57,10 +57,6 @@
   .shutter { width: 68px; height: 68px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,.25); }
   .shutter:active { background: #fff; }
   .cam-spacer { width: 60px; }
-  .rotate-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 3; display: none; pointer-events: none; white-space: nowrap; }
-  @media (orientation: portrait) {
-    #cameraView.side-slot .rotate-hint { display: block; }
-  }
   /* 横向き: シャッターを右側の縦バーに(ネイティブカメラ風)。ガイドも大きく */
   @media (orientation: landscape) {
     #cameraView.show { flex-direction: row; }
@@ -121,7 +117,6 @@
       <div class="slot-name" id="camSlotName"></div>
       <div class="hint" id="camHint"></div>
     </div>
-    <div class="rotate-hint">📱 スマホを横向きにすると撮りやすいです</div>
   </div>
   <div class="cam-bottom">
     <button class="cam-cancel" onclick="closeCamera()">キャンセル</button>
@@ -231,7 +226,10 @@
    * オーバーレイを設定する。assets/guides/{サイズ}_{キー}.png があれば画像を優先し、
    * 無ければ内蔵のシルエット(SVG)を表示する。画像は白い線・背景透過の PNG を想定。
    */
+  var overlaySeq = 0; // 古い非同期読み込みが後から上書きしないための世代番号
+
   function setOverlay(el, slot, size) {
+    var seq = ++overlaySeq;
     var key = GUIDE_KEYS[slot.guide] || 'grid';
     el.innerHTML = builtinGuideSvg(key, size);
     if (key === 'front' || key === 'rear' || key === 'side') {
@@ -248,9 +246,12 @@
       if (lr) candidates.push(base + lr + '.png');
       candidates.push(base + '.png');
       (function tryNext(i) {
-        if (i >= candidates.length) return;
+        if (i >= candidates.length || seq !== overlaySeq) return;
         var img = new Image();
-        img.onload = function () { el.innerHTML = '<img class="guide-img" src="' + candidates[i] + '">'; };
+        img.onload = function () {
+          if (seq !== overlaySeq) return; // 既に別のスロットを開いていたら反映しない
+          el.innerHTML = '<img class="guide-img" src="' + candidates[i] + '">';
+        };
         img.onerror = function () { tryNext(i + 1); };
         img.src = candidates[i];
       })(0);
@@ -282,10 +283,6 @@
   function boot() {
     if (!KEY) { fail('アクセス権がありません。共有された URL から開いてください。'); return; }
     STAFF_NAME = localStorage.getItem('staffName') || '';
-    if (!STAFF_NAME) {
-      STAFF_NAME = (prompt('お名前を入力してください(初回のみ)') || 'スタッフ').trim();
-      localStorage.setItem('staffName', STAFF_NAME);
-    }
     fetch(API_URL + '?page=api&action=bootstrap&key=' + encodeURIComponent(KEY) + '&name=' + encodeURIComponent(STAFF_NAME))
       .then(function (r) { return r.json(); })
       .then(function (res) {
@@ -394,8 +391,6 @@
         $('camSlotName').textContent = slot.name + (slot.required ? '(必須)' : '');
         $('camHint').textContent = slot.desc || '線に合わせて撮影してください';
         setOverlay($('camOverlay'), slot, caseSize());
-        // 側面は横向き撮影が前提なので、縦向きのときだけヒントを出す
-        $('cameraView').classList.toggle('side-slot', slot.guide === '車側面');
         $('cameraView').classList.add('show');
       }).catch(function () {
         showGuideModal();

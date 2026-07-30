@@ -61,11 +61,12 @@
   @media (orientation: portrait) {
     #cameraView.side-slot .rotate-hint { display: block; }
   }
-  /* 横向き: シャッターを右側の縦バーに(ネイティブカメラ風) */
+  /* 横向き: シャッターを右側の縦バーに(ネイティブカメラ風)。ガイドも大きく */
   @media (orientation: landscape) {
     #cameraView.show { flex-direction: row; }
     .cam-bottom { flex-direction: column-reverse; width: 112px; height: auto; padding: 16px calc(12px + env(safe-area-inset-right)) 16px 12px; justify-content: space-between; align-items: center; }
     .cam-spacer { width: auto; height: 40px; }
+    .cam-overlay svg, .cam-overlay .guide-img { width: 96%; max-height: 92%; }
   }
 
   /* ---- フォールバック用ガイドプレビュー ---- */
@@ -106,7 +107,7 @@
   <div id="caseList" style="display:none"></div>
   <div id="slotView" style="display:none">
     <div id="caseTitle"></div>
-    <button class="gallery-open" onclick="openGallery()">📷 撮影済みの写真を見る</button>
+    <button class="gallery-open" onclick="openDriveFolder()">📁 写真フォルダを開く(ドライブ)</button>
     <div id="slotList"></div>
   </div>
 </main>
@@ -136,15 +137,6 @@
   <div id="gmGuide"></div>
   <button class="open-cam" onclick="openNativeCamera()">この構図で撮影する</button>
   <button class="cancel" onclick="hideGuideModal()">キャンセル</button>
-</div>
-
-<!-- 撮影済みギャラリー -->
-<div id="galleryModal">
-  <div class="gal-head">
-    <div class="title" id="galTitle">撮影済みの写真</div>
-    <button class="gal-close" onclick="closeGallery()">×</button>
-  </div>
-  <div class="gal-grid" id="galGrid"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -244,10 +236,16 @@
     el.innerHTML = builtinGuideSvg(key, size);
     if (key === 'front' || key === 'rear' || key === 'side') {
       var base = 'assets/guides/' + SIZE_FILE_KEY[size] + '_' + key;
-      // 側面は左右別の画像(_l/_r)があれば優先し、無ければ共通(_side.png)→内蔵SVGの順
+      var portrait = window.matchMedia('(orientation: portrait)').matches;
+      // 側面: 左右別画像(_l/_r) > 共通 > 内蔵SVG。縦向きのときは縦用(_p)を優先
       var candidates = [];
-      if (key === 'side' && slot.slotId === 'left') candidates.push(base + '_l.png');
-      if (key === 'side' && slot.slotId === 'right') candidates.push(base + '_r.png');
+      var lr = (key === 'side' && slot.slotId === 'left') ? '_l'
+             : (key === 'side' && slot.slotId === 'right') ? '_r' : '';
+      if (key === 'side' && portrait) {
+        if (lr) candidates.push(base + lr + '_p.png');
+        candidates.push(base + '_p.png');
+      }
+      if (lr) candidates.push(base + lr + '.png');
       candidates.push(base + '.png');
       (function tryNext(i) {
         if (i >= candidates.length) return;
@@ -258,6 +256,13 @@
       })(0);
     }
   }
+
+  // 画面の縦横が変わったら、表示中のガイドを切り替える
+  window.matchMedia('(orientation: portrait)').addEventListener('change', function () {
+    if ($('cameraView').classList.contains('show') && currentSlot) {
+      setOverlay($('camOverlay'), currentSlot, caseSize());
+    }
+  });
 
   // ---- 共通 ----
   function $(id) { return document.getElementById(id); }
@@ -441,8 +446,11 @@
   });
 
   function uploadDataUrl(dataUrl) {
+    // 撮影時点の対象を固定する(アップロード中に別スロットの撮影を始めても混ざらないように)
+    var slot = currentSlot;
+    var kase = currentCase;
     var label = '';
-    if (currentSlot.extra) {
+    if (slot.extra) {
       label = (prompt('この写真の名前(空欄のままOKなら日時が付きます)') || '').trim();
     }
     toast('アップロード中…');
@@ -452,8 +460,8 @@
       body: JSON.stringify({
         key: KEY,
         name: STAFF_NAME,
-        receiptNo: currentCase.receiptNo,
-        slotId: currentSlot.slotId,
+        receiptNo: kase.receiptNo,
+        slotId: slot.slotId,
         label: label,
         dataUrl: dataUrl
       })
@@ -461,58 +469,27 @@
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res.ok) { alert(res.error + '\nもう一度撮影してください。'); return; }
-        var counts = (DATA.counts[currentCase.receiptNo] = DATA.counts[currentCase.receiptNo] || {});
-        var entry = counts[currentSlot.slotId];
-        if (!entry || typeof entry === 'number') entry = counts[currentSlot.slotId] = { n: Number(entry) || 0, last: '' };
+        var counts = (DATA.counts[kase.receiptNo] = DATA.counts[kase.receiptNo] || {});
+        var entry = counts[slot.slotId];
+        if (!entry || typeof entry === 'number') entry = counts[slot.slotId] = { n: Number(entry) || 0, last: '' };
         entry.n++;
         if (res.fileId) entry.last = res.fileId;
-        renderSlots();
+        if (res.folderUrl) kase.folderUrl = res.folderUrl;
+        // 表示中の案件のときだけ再描画する
+        if (currentCase && currentCase.receiptNo === kase.receiptNo) renderSlots();
         toast('保存しました ✓');
       })
       .catch(function (e) { alert('通信エラー: ' + e.message + '\n電波の良い場所でもう一度お試しください。'); });
   }
 
-  // ---- ギャラリー ----
-  function openGallery() {
-    $('galTitle').textContent = currentCase.receiptNo + ' ' + currentCase.vehicle + ' の写真';
-    $('galGrid').innerHTML = '<div class="gal-empty">読み込み中…</div>';
-    $('galleryModal').classList.add('show');
-    fetch(API_URL + '?page=api&action=photos&key=' + encodeURIComponent(KEY) +
-          '&name=' + encodeURIComponent(STAFF_NAME) + '&receiptNo=' + encodeURIComponent(currentCase.receiptNo))
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (!res.ok) { $('galGrid').innerHTML = '<div class="gal-empty">' + esc(res.error) + '</div>'; return; }
-        renderGallery(res.photos);
-      })
-      .catch(function (e) { $('galGrid').innerHTML = '<div class="gal-empty">通信エラー: ' + esc(e.message) + '</div>'; });
-  }
-
-  function renderGallery(photos) {
-    var grid = $('galGrid');
-    grid.innerHTML = '';
-    if (photos.length === 0) {
-      grid.innerHTML = '<div class="gal-empty">まだ写真がありません</div>';
+  // ---- 写真フォルダ(ドライブ)を開く ----
+  function openDriveFolder() {
+    if (currentCase && currentCase.folderUrl) {
+      window.open(currentCase.folderUrl, '_blank');
       return;
     }
-    var slotNames = {};
-    Object.keys(DATA.slots).forEach(function (cat) {
-      DATA.slots[cat].forEach(function (s) { slotNames[s.slotId] = s.name; });
-    });
-    photos.forEach(function (p) {
-      var caption = p.label || slotNames[p.slotId] || (p.slotId === 'extra' ? p.date : p.slotId);
-      var el = document.createElement('div');
-      el.className = 'gal-item';
-      el.innerHTML =
-        '<img loading="lazy" src="https://drive.google.com/thumbnail?id=' + esc(p.fileId) + '&sz=w400" alt="">' +
-        '<div class="cap">' + esc(caption) + ' ' + esc(p.date) + '</div>';
-      el.onclick = function () {
-        window.open('https://drive.google.com/file/d/' + p.fileId + '/view', '_blank');
-      };
-      grid.appendChild(el);
-    });
+    toast('まだ写真がありません(1枚撮るとフォルダが作られます)');
   }
-
-  function closeGallery() { $('galleryModal').classList.remove('show'); }
 
   /** 長辺 maxSize px・JPEG に圧縮して dataURL を返す(通信量対策) */
   function resizeImage(file, maxSize, quality, callback) {

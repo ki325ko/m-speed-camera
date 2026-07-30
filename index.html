@@ -230,7 +230,9 @@
 
   function setOverlay(el, slot, size) {
     var seq = ++overlaySeq;
-    var key = GUIDE_KEYS[slot.guide] || 'grid';
+    // ガイド列が空のスロットはガイド無し(素のカメラ)
+    var key = GUIDE_KEYS[slot.guide];
+    if (!key) { el.innerHTML = ''; return; }
     el.innerHTML = builtinGuideSvg(key, size);
     if (key === 'front' || key === 'rear' || key === 'side') {
       var base = 'assets/guides/' + SIZE_FILE_KEY[size] + '_' + key;

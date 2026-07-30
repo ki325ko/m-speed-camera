@@ -25,6 +25,7 @@
   .section-head:first-child { margin-top: 2px; }
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; color: #374151; white-space: nowrap; }
   .slot { display: flex; align-items: center; gap: 10px; }
+  .slot .thumb { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: #e5e7eb; flex-shrink: 0; }
   .slot .name { flex: 1; font-weight: 600; }
   .slot .name small { display: block; font-weight: 400; font-size: 11px; color: #6b7280; margin-top: 2px; }
   .req { color: #dc2626; font-size: 11px; margin-left: 4px; }
@@ -56,6 +57,16 @@
   .shutter { width: 68px; height: 68px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,.25); }
   .shutter:active { background: #fff; }
   .cam-spacer { width: 60px; }
+  .rotate-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 3; display: none; pointer-events: none; white-space: nowrap; }
+  @media (orientation: portrait) {
+    #cameraView.side-slot .rotate-hint { display: block; }
+  }
+  /* 横向き: シャッターを右側の縦バーに(ネイティブカメラ風) */
+  @media (orientation: landscape) {
+    #cameraView.show { flex-direction: row; }
+    .cam-bottom { flex-direction: column-reverse; width: 112px; height: auto; padding: 16px calc(12px + env(safe-area-inset-right)) 16px 12px; justify-content: space-between; align-items: center; }
+    .cam-spacer { width: auto; height: 40px; }
+  }
 
   /* ---- フォールバック用ガイドプレビュー ---- */
   #guideModal { position: fixed; inset: 0; background: rgba(17,24,39,.96); z-index: 30; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; color: #fff; text-align: center; }
@@ -109,6 +120,7 @@
       <div class="slot-name" id="camSlotName"></div>
       <div class="hint" id="camHint"></div>
     </div>
+    <div class="rotate-hint">📱 スマホを横向きにすると撮りやすいです</div>
   </div>
   <div class="cam-bottom">
     <button class="cam-cancel" onclick="closeCamera()">キャンセル</button>
@@ -340,15 +352,26 @@
     var box = $('slotList');
     box.innerHTML = '';
     slots.forEach(function (s) {
-      var n = counts[s.slotId] || 0;
+      var c = counts[s.slotId] || { n: 0, last: '' };
+      if (typeof c === 'number') c = { n: c, last: '' };
       var el = document.createElement('div');
-      el.className = 'card slot' + (n > 0 && !s.extra ? ' done' : '');
-      el.innerHTML =
+      el.className = 'card slot' + (c.n > 0 && !s.extra ? ' done' : '');
+      var thumb = c.last
+        ? '<img class="thumb" src="https://drive.google.com/thumbnail?id=' + esc(c.last) + '&sz=w200" alt="">'
+        : '';
+      el.innerHTML = thumb +
         '<div class="name">' + esc(s.name) + (s.required ? '<span class="req">必須</span>' : '') +
         (s.desc ? '<small>' + esc(s.desc) + '</small>' : '') + '</div>' +
-        '<div class="count' + (n === 0 ? ' zero' : '') + '">' + n + '枚</div>' +
-        '<button class="shoot' + (s.extra ? ' extra' : '') + '">' + (s.extra ? '＋撮影' : (n > 0 ? '追加撮影' : '撮影')) + '</button>';
+        '<div class="count' + (c.n === 0 ? ' zero' : '') + '">' + c.n + '枚</div>' +
+        '<button class="shoot' + (s.extra ? ' extra' : '') + '">' + (s.extra ? '＋撮影' : (c.n > 0 ? '追加撮影' : '撮影')) + '</button>';
       el.querySelector('.shoot').onclick = function () { startShoot(s); };
+      var thumbEl = el.querySelector('.thumb');
+      if (thumbEl) {
+        thumbEl.onclick = function (ev) {
+          ev.stopPropagation();
+          window.open('https://drive.google.com/file/d/' + c.last + '/view', '_blank');
+        };
+      }
       box.appendChild(el);
     });
   }
@@ -366,6 +389,8 @@
         $('camSlotName').textContent = slot.name + (slot.required ? '(必須)' : '');
         $('camHint').textContent = slot.desc || '線に合わせて撮影してください';
         setOverlay($('camOverlay'), slot, caseSize());
+        // 側面は横向き撮影が前提なので、縦向きのときだけヒントを出す
+        $('cameraView').classList.toggle('side-slot', slot.guide === '車側面');
         $('cameraView').classList.add('show');
       }).catch(function () {
         showGuideModal();
@@ -437,7 +462,10 @@
       .then(function (res) {
         if (!res.ok) { alert(res.error + '\nもう一度撮影してください。'); return; }
         var counts = (DATA.counts[currentCase.receiptNo] = DATA.counts[currentCase.receiptNo] || {});
-        counts[currentSlot.slotId] = (counts[currentSlot.slotId] || 0) + 1;
+        var entry = counts[currentSlot.slotId];
+        if (!entry || typeof entry === 'number') entry = counts[currentSlot.slotId] = { n: Number(entry) || 0, last: '' };
+        entry.n++;
+        if (res.fileId) entry.last = res.fileId;
         renderSlots();
         toast('保存しました ✓');
       })

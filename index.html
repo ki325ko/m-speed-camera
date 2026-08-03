@@ -17,7 +17,9 @@
   .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; white-space: pre-wrap; }
   .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
   .case-card { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-  .case-card .info { flex: 1; }
+  .case-card .cthumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #e5e7eb; flex-shrink: 0; }
+  .case-card .cthumb.none { display: flex; align-items: center; justify-content: center; font-size: 20px; color: #9ca3af; }
+  .case-card .info { flex: 1; min-width: 0; }
   .case-card .vehicle { font-weight: 600; }
   .case-card .vehicle .plate { font-weight: 400; font-size: 11px; color: #6b7280; margin-left: 6px; }
   .case-card .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
@@ -76,6 +78,27 @@
   #guideModal .open-cam { background: #2563eb; color: #fff; border: none; border-radius: 999px; padding: 14px 28px; font-size: 15px; font-weight: 700; margin-top: 8px; }
   #guideModal .cancel { background: none; border: none; color: #9ca3af; font-size: 14px; margin-top: 16px; }
 
+  /* ---- お客様へ送る写真の確認 ---- */
+  .pending-banner { display: none; width: 100%; background: #b45309; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; margin-bottom: 12px; text-align: left; }
+  .pending-banner small { display: block; font-weight: 400; font-size: 12px; opacity: .9; margin-top: 3px; }
+  .pgroup { border: 2px solid #f59e0b; }
+  .pg-cust { font-size: 17px; font-weight: 700; }
+  .pg-veh { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .pg-warn { background: #fffbeb; color: #92400e; font-size: 12px; border-radius: 6px; padding: 8px 10px; margin: 10px 0; line-height: 1.5; }
+  .pg-block { background: #fef2f2; color: #b91c1c; font-size: 12px; border-radius: 6px; padding: 8px 10px; margin: 10px 0; }
+  .pg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pg-item { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #e5e7eb; cursor: pointer; }
+  .pg-item img { width: 100%; height: 100%; object-fit: cover; }
+  .pg-item .cap { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pg-item .mark { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: #059669; color: #fff; font-size: 13px; line-height: 22px; text-align: center; font-weight: 700; }
+  .pg-item.off img { opacity: .3; }
+  .pg-item.off .mark { background: #9ca3af; }
+  .pg-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .pg-actions button { flex: 1; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 700; }
+  .pg-send { background: #059669; color: #fff; }
+  .pg-send:disabled { background: #d1d5db; color: #6b7280; }
+  .pg-skip { background: #fff; color: #6b7280; border: 1px solid #d1d5db !important; flex: 0 0 40% !important; }
+
   /* ---- ギャラリー ---- */
   #galleryModal { position: fixed; inset: 0; background: #111827; z-index: 50; display: none; flex-direction: column; }
   #galleryModal.show { display: flex; }
@@ -100,7 +123,12 @@
 <main>
   <div id="loading" class="center">読み込み中…</div>
   <div id="errorBox" class="error" style="display:none"></div>
+  <button class="pending-banner" id="pendingBanner" onclick="showPending()"></button>
   <div id="caseList" style="display:none"></div>
+  <div id="pendingView" style="display:none">
+    <div class="pg-warn">お客様に届く前の最終確認です。<b>写っている車とお客様名が合っているか</b>を必ず見てください。送りたくない写真はタップして外せます。</div>
+    <div id="pendingList"></div>
+  </div>
   <div id="slotView" style="display:none">
     <div id="caseTitle"></div>
     <button class="gallery-open" onclick="openDriveFolder()">📁 写真フォルダを開く(ドライブ)</button>
@@ -280,6 +308,24 @@
     $('errorBox').textContent = msg;
   }
   function caseSize() { return normSize(currentCase && currentCase.size); }
+  function thumbUrl(fileId, w) { return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fileId) + '&sz=w' + w; }
+
+  /**
+   * 案件一覧に出すサムネイルの写真を選ぶ。
+   * 正面(front)を最優先。まだ無ければ他のスロットの写真で代用する。
+   */
+  function caseThumbId(c) {
+    var counts = (DATA.counts || {})[c.receiptNo];
+    if (!counts) return '';
+    var prefer = ['front', 'damage_wide', 'finished', 'before', 'rear', 'left', 'right'];
+    for (var i = 0; i < prefer.length; i++) {
+      if (counts[prefer[i]] && counts[prefer[i]].last) return counts[prefer[i]].last;
+    }
+    for (var k in counts) {
+      if (counts[k] && counts[k].last) return counts[k].last;
+    }
+    return '';
+  }
 
   // ---- 起動 ----
   function boot() {
@@ -292,6 +338,7 @@
         DATA = res;
         $('staffName').textContent = res.staffName;
         showCaseList();
+        loadPending();
       })
       .catch(function (e) { fail('通信エラー: ' + e.message + '\n電波の良い場所で再読み込みしてください。'); });
   }
@@ -302,9 +349,11 @@
     $('backBtn').style.display = 'none';
     $('loading').style.display = 'none';
     $('slotView').style.display = 'none';
+    $('pendingView').style.display = 'none';
     var box = $('caseList');
     box.style.display = 'block';
     box.innerHTML = '';
+    if (pendingStale) { pendingStale = false; loadPending(); } else { renderPendingBanner(); }
     if (DATA.cases.length === 0) {
       box.innerHTML = '<div class="center">対象の案件がありません</div>';
       return;
@@ -326,7 +375,11 @@
       cases.forEach(function (c) {
         var el = document.createElement('div');
         el.className = 'card case-card';
+        var thumbId = caseThumbId(c);
         el.innerHTML =
+          (thumbId
+            ? '<img class="cthumb" src="' + thumbUrl(thumbId, 160) + '" alt="">'
+            : '<div class="cthumb none">🚗</div>') +
           '<div class="info"><div class="vehicle">' + esc(c.vehicle) +
           (c.size ? ' <span class="badge">' + esc(c.size) + '</span>' : '') +
           '<span class="plate">' + esc(c.plate) + '</span></div>' +
@@ -339,11 +392,146 @@
     });
   }
 
+  // ---- お客様へ送る写真の確認 ----
+  // 撮った写真は自動では送らない。ここで案件(お客様)ごとにまとめて確認してから送信する。
+  var PENDING = null;
+  var pendingStale = false; // 撮影後に確認待ちが増えたことを示す(一覧に戻ったときに読み直す)
+
+  function loadPending() {
+    fetch(API_URL + '?page=api&action=pending&key=' + encodeURIComponent(KEY))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        PENDING = res.ok ? res.groups : [];
+        renderPendingBanner();
+        if ($('pendingView').style.display === 'block') renderPending();
+      })
+      .catch(function () { /* 一覧の表示は妨げない(次回の読み込みで再試行) */ });
+  }
+
+  function renderPendingBanner() {
+    var banner = $('pendingBanner');
+    var onList = $('caseList').style.display === 'block';
+    if (!PENDING || PENDING.length === 0 || !onList) {
+      banner.style.display = 'none';
+      return;
+    }
+    var photos = PENDING.reduce(function (n, g) { return n + g.photos.length; }, 0);
+    banner.innerHTML = '📤 お客様へ送る写真の確認(' + PENDING.length + '件)' +
+      '<small>未確認の写真 ' + photos + '枚。確認すると LINE でお客様に届きます</small>';
+    banner.style.display = 'block';
+  }
+
+  function showPending() {
+    $('caseList').style.display = 'none';
+    $('slotView').style.display = 'none';
+    $('pendingBanner').style.display = 'none';
+    $('pendingView').style.display = 'block';
+    $('backBtn').style.display = 'block';
+    renderPending();
+  }
+
+  function renderPending() {
+    var box = $('pendingList');
+    box.innerHTML = '';
+    if (!PENDING || PENDING.length === 0) {
+      box.innerHTML = '<div class="center">確認待ちの写真はありません</div>';
+      return;
+    }
+    PENDING.forEach(function (g) {
+      var el = document.createElement('div');
+      el.className = 'card pgroup';
+      var grid = g.photos.map(function (p) {
+        return '<div class="pg-item" data-id="' + esc(p.fileId) + '">' +
+          '<img src="' + thumbUrl(p.fileId, 300) + '" alt="">' +
+          '<div class="mark">✓</div>' +
+          '<div class="cap">' + esc(p.name) + ' ' + esc(p.date) + '</div></div>';
+      }).join('');
+      el.innerHTML =
+        '<div class="pg-cust">' + esc(g.customer || '(顧客不明)') + ' 様</div>' +
+        '<div class="pg-veh">' + esc(g.vehicle || '') + ' ' + esc(g.plate || '') +
+        ' ・ 受付 ' + esc(g.receiptNo) + (g.status ? ' ・ ' + esc(g.status) : '') + '</div>' +
+        (g.sendable ? '' : '<div class="pg-block">⚠ ' + esc(g.reason) + '<br>このお客様には送信できません。確認だけ済ませてください。</div>') +
+        '<div class="pg-grid">' + grid + '</div>' +
+        '<div class="pg-actions">' +
+        '<button class="pg-skip">送らない</button>' +
+        (g.sendable ? '<button class="pg-send"></button>' : '') +
+        '</div>';
+
+      var selected = {};
+      g.photos.forEach(function (p) { selected[p.fileId] = true; });
+
+      function refreshSendLabel() {
+        var btn = el.querySelector('.pg-send');
+        if (!btn) return;
+        var n = Object.keys(selected).filter(function (k) { return selected[k]; }).length;
+        btn.textContent = n > 0 ? n + '枚を送信' : '送る写真がありません';
+        btn.disabled = n === 0;
+      }
+
+      el.querySelectorAll('.pg-item').forEach(function (item) {
+        item.onclick = function () {
+          var id = item.getAttribute('data-id');
+          selected[id] = !selected[id];
+          item.classList.toggle('off', !selected[id]);
+          item.querySelector('.mark').textContent = selected[id] ? '✓' : '−';
+          refreshSendLabel();
+        };
+      });
+      refreshSendLabel();
+
+      el.querySelector('.pg-skip').onclick = function () {
+        if (!confirm(g.customer + '様の写真 ' + g.photos.length + '枚を「送らない」で確認済みにします。よろしいですか?')) return;
+        submitReview(g, [], g.photos.map(function (p) { return p.fileId; }), el);
+      };
+      var sendBtn = el.querySelector('.pg-send');
+      if (sendBtn) {
+        sendBtn.onclick = function () {
+          var send = g.photos.map(function (p) { return p.fileId; }).filter(function (id) { return selected[id]; });
+          var skip = g.photos.map(function (p) { return p.fileId; }).filter(function (id) { return !selected[id]; });
+          if (send.length === 0) return;
+          if (!confirm(g.customer + '様に写真 ' + send.length + '枚を LINE で送信します。よろしいですか?')) return;
+          submitReview(g, send, skip, el);
+        };
+      }
+      box.appendChild(el);
+    });
+  }
+
+  function submitReview(group, sendIds, skipIds, el) {
+    el.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    toast('送信中…');
+    fetch(API_URL + '?path=review', {
+      method: 'POST',
+      body: JSON.stringify({
+        key: KEY, name: STAFF_NAME, receiptNo: group.receiptNo, send: sendIds, skip: skipIds
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) {
+          alert(res.error);
+          el.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+          return;
+        }
+        PENDING = PENDING.filter(function (g) { return g !== group; });
+        toast(res.sent > 0 ? res.sent + '枚を送信しました ✓' : '確認済みにしました');
+        renderPending();
+        renderPendingBanner();
+        if (PENDING.length === 0) showCaseList();
+      })
+      .catch(function (e) {
+        alert('通信エラー: ' + e.message + '\n電波の良い場所でもう一度お試しください。');
+        el.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      });
+  }
+
   // ---- 撮影チェックリスト ----
   function showSlots(c) {
     currentCase = c;
     $('backBtn').style.display = 'block';
     $('caseList').style.display = 'none';
+    $('pendingView').style.display = 'none';
+    $('pendingBanner').style.display = 'none';
     $('slotView').style.display = 'block';
     $('caseTitle').textContent = c.receiptNo + ' ' + c.vehicle + '(' + c.customer + '様) — ' + c.category +
       (c.size ? ' / サイズ' + c.size : '');
@@ -474,6 +662,7 @@
         if (res.folderUrl) kase.folderUrl = res.folderUrl;
         // 表示中の案件のときだけ再描画する
         if (currentCase && currentCase.receiptNo === kase.receiptNo) renderSlots();
+        pendingStale = true; // 一覧に戻ったときに「お客様へ送る写真の確認」を読み直す
         toast('保存しました ✓');
       })
       .catch(function (e) { alert('通信エラー: ' + e.message + '\n電波の良い場所でもう一度お試しください。'); });
@@ -488,18 +677,29 @@
     toast('まだ写真がありません(1枚撮るとフォルダが作られます)');
   }
 
-  /** 長辺 maxSize px・JPEG に圧縮して dataURL を返す(通信量対策) */
+  /**
+   * 標準カメラで撮った画像を長辺 maxSize px の JPEG に変換・圧縮して dataURL を返す。
+   * iPhone の HEIC もここで JPEG になる(Safari が読めない場合はエラーを出して撮り直しを促す)。
+   */
   function resizeImage(file, maxSize, quality, callback) {
     var img = new Image();
     var reader = new FileReader();
     reader.onload = function () { img.src = reader.result; };
+    reader.onerror = function () { alert('写真を読み込めませんでした。もう一度撮影してください。'); };
     img.onload = function () {
-      var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      var canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      callback(canvas.toDataURL('image/jpeg', quality));
+      try {
+        var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        callback(canvas.toDataURL('image/jpeg', quality));
+      } catch (e) {
+        alert('写真を変換できませんでした(' + e.message + ')。もう一度撮影してください。');
+      }
+    };
+    img.onerror = function () {
+      alert('この形式の写真は扱えませんでした。\n端末の「カメラ設定 → フォーマット」を「互換性優先」にするか、アプリ内の撮影ボタンから撮り直してください。');
     };
     reader.readAsDataURL(file);
   }
